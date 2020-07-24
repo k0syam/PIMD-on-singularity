@@ -21,7 +21,7 @@ From: debian:latest
     apt install -y build-essential libopenblas-dev libblas-dev liblapack-dev liblapack3 gfortran libglfw3-dev libglew-dev
     apt install -y libopenmpi-dev openmpi-bin
     apt install -y libssl-dev git wget zip unzip
-    cd $HOME
+    cd /opt
     git clone https://github.com/Reference-LAPACK/lapack.git -b v3.9.0
     cd lapack
     cp ./make.inc.example ./make.inc
@@ -31,12 +31,11 @@ From: debian:latest
     cp librefblas.a /usr/local/lib/libblas.a
     cp liblapack.a /usr/local/lib/liblapack.a
     cp libtmglib.a /usr/local/lib/libtmg.a
-    cd $HOME
+    cd /opt
     mkdir PIMD
     cd PIMD
     wget https://ccse.jaea.go.jp/software/PIMD/download/pimd.2.3.0.tar
     tar xvfz pimd.2.3.0.tar
-    ls source
     mkdir compile
     cp source/* compile/
     cd compile
@@ -44,14 +43,14 @@ From: debian:latest
     sed -i -e 's/QE =/QE = -Dqe/g' ./makefile
     sed -i -e 's/-lqe -L. -lfftw3/-lqe/g' ./makefile
     make common_variables.o
-    cd ~/PIMD/lib/qe/
+    cd /opt/PIMD/lib/qe/
     wget https://github.com/QEF/q-e/archive/qe-6.2.1.zip
     unzip qe-6.2.1.zip
     patch -p0 < qe-6.2.1_to_pimdlib.patch
-    cd ~/PIMD/lib/qe/q-e-qe-6.2.1
+    cd /opt/PIMD/lib/qe/q-e-qe-6.2.1
     ./configure
-    cp ~/PIMD/compile/common_variables.mod ./Modules/
-    cp ~/PIMD/compile/common_variables.mod ./PW/src/
+    cp /opt/PIMD/compile/common_variables.mod ./Modules/
+    cp /opt/PIMD/compile/common_variables.mod ./PW/src/
     cp -p ../Makefile_libqe_pwsrc ./PW/src/Makefile 
     cp -p ../Makefile_libqe_modules ./Modules/Makefile
     make -i -k pw
@@ -60,20 +59,16 @@ From: debian:latest
     cd ../PW/src
     make
     make default
-    cd ~/PIMD/compile/
+    cd /opt/PIMD/compile/
     make veryclean
     make
-    cd ~/PIMD/compile/
-    make
-    cd $HOME
+    cd /opt
     wget https://www.materialscloud.org/discover/data/discover/sssp/downloads/SSSP_efficiency_pseudos.tar.gz
     tar xzvf SSSP_efficiency_pseudos.tar.gz
-    mv SSSP_efficiency_pseudos/ ~/PIMD/lib/qe/pseudo/
+    mv SSSP_efficiency_pseudos/ /opt/PIMD/lib/qe/pseudo/
 
 %runscript
-    echo "Container was created $NOW"
-    echo "Arguments received: $*"
-    exec echo "$@"
+    /opt/PIMD/pimd.2.3.0/compile/pimd.mpi.x
 
 %startscript
     nc -lp $LISTEN_PORT
