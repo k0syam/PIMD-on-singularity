@@ -1,0 +1,83 @@
+Bootstrap: docker
+From: debian:latest
+
+%labels
+    Author d@sylabs.io
+    Version v0.0.1
+    FILENAME=pimd-2.4.0.tar
+
+%files
+    # build the vagrant
+    /vagrant/installer/pimd.2.4.0.tar /tmp/installer/pimd.2.4.0.tar
+
+%environment
+    export LISTEN_PORT=12345
+    export LC_ALL=C
+    export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/local/lib
+
+%post
+    apt update -y
+    apt upgrade -y
+    apt install -y build-essential libopenblas-dev libblas-dev liblapack-dev liblapack3 gfortran libglfw3-dev libglew-dev
+    apt install -y libopenmpi-dev openmpi-bin
+    apt install -y libssl-dev git wget zip unzip
+    cd $HOME
+    git clone https://github.com/Reference-LAPACK/lapack.git -b v3.9.0
+    cd lapack
+    cp ./make.inc.example ./make.inc
+    make blaslib
+    make lapacklib
+    make tmglib
+    cp librefblas.a /usr/local/lib/libblas.a
+    cp liblapack.a /usr/local/lib/liblapack.a
+    cp libtmglib.a /usr/local/lib/libtmg.a
+    cd $HOME
+    mkdir PIMD
+    cd PIMD
+    wget https://ccse.jaea.go.jp/software/PIMD/download/pimd.2.3.0.tar
+    tar xvfz pimd.2.3.0.tar
+    ls source
+    mkdir compile
+    cp source/* compile/
+    cd compile
+    sed -i -e 's/-framework Accelerate/ -lopenblas -llapack/g' ./makefile
+    sed -i -e 's/QE =/QE = -Dqe/g' ./makefile
+    sed -i -e 's/-lqe -L. -lfftw3/-lqe/g' ./makefile
+    make common_variables.o
+    cd ~/PIMD/lib/qe/
+    wget https://github.com/QEF/q-e/archive/qe-6.2.1.zip
+    unzip qe-6.2.1.zip
+    patch -p0 < qe-6.2.1_to_pimdlib.patch
+    cd ~/PIMD/lib/qe/q-e-qe-6.2.1
+    ./configure
+    cp ~/PIMD/compile/common_variables.mod ./Modules/
+    cp ~/PIMD/compile/common_variables.mod ./PW/src/
+    cp -p ../Makefile_libqe_pwsrc ./PW/src/Makefile 
+    cp -p ../Makefile_libqe_modules ./Modules/Makefile
+    make -i -k pw
+    cd ./Modules
+    make
+    cd ../PW/src
+    make
+    make default
+    cd ~/PIMD/compile/
+    make veryclean
+    make
+    cd ~/PIMD/compile/
+    make
+    cd $HOME
+    wget https://www.materialscloud.org/discover/data/discover/sssp/downloads/SSSP_efficiency_pseudos.tar.gz
+    tar xzvf SSSP_efficiency_pseudos.tar.gz
+    mv SSSP_efficiency_pseudos/ ~/PIMD/lib/qe/pseudo/
+
+%runscript
+    echo "Container was created $NOW"
+    echo "Arguments received: $*"
+    exec echo "$@"
+
+%startscript
+    nc -lp $LISTEN_PORT
+
+%help
+    This is a demo container used to illustrate a def file that uses all
+    supported sections.
