@@ -2,13 +2,11 @@ Bootstrap: docker
 From: debian:latest
 
 %labels
-    Author d@sylabs.io
+    Author k0syam
     Version v0.0.1
-    FILENAME=pimd-2.4.0.tar
 
 %files
-    # build the vagrant
-    /vagrant/installer/pimd.2.4.0.tar /tmp/installer/pimd.2.4.0.tar
+    # bind the files
 
 %environment
     export LISTEN_PORT=12345
@@ -21,16 +19,6 @@ From: debian:latest
     apt install -y build-essential libopenblas-dev libblas-dev liblapack-dev liblapack3 gfortran libglfw3-dev libglew-dev
     apt install -y libopenmpi-dev openmpi-bin
     apt install -y libssl-dev git wget zip unzip
-    cd /opt
-    git clone https://github.com/Reference-LAPACK/lapack.git -b v3.9.0
-    cd lapack
-    cp ./make.inc.example ./make.inc
-    make blaslib
-    make lapacklib
-    make tmglib
-    cp librefblas.a /usr/local/lib/libblas.a
-    cp liblapack.a /usr/local/lib/liblapack.a
-    cp libtmglib.a /usr/local/lib/libtmg.a
     cd /opt
     mkdir PIMD
     cd PIMD
@@ -59,20 +47,41 @@ From: debian:latest
     cd ../PW/src
     make
     make default
-    cd /opt/PIMD/compile/
-    make veryclean
-    make
+    # cd /opt/PIMD/compile/
+    # make veryclean
+    # make
     cd /opt
     wget https://www.materialscloud.org/discover/data/discover/sssp/downloads/SSSP_efficiency_pseudos.tar.gz
     tar xzvf SSSP_efficiency_pseudos.tar.gz
     mv SSSP_efficiency_pseudos/ /opt/PIMD/lib/qe/pseudo/
+    cd /opt/PIMD/lib/aenet/
+    wget http://ann.atomistic.net/files/aenet-2.0.3.tar.bz2
+    tar xvf aenet-2.0.3.tar.bz2
+    cp -r aenet-2.0.3/src ./
+    cp -r aenet-2.0.3/lib ./
+    cd lib/
+    make
+    cp liblbfgsb.a ../../
+    cd /opt/PIMD/lib/aenet/
+    cp -r src src_modified
+    patch -u -p1 -d src_modified < src.patch
+    cd src_modified/
+    make -f makefiles/Makefile.gfortran_openblas_mpi lib
+    cp libaenet.a ../../
+    cd /opt/PIMD/compile/
+    sed -i -e 's/AENET =/AENET = -Daenet/g' ./makefile
+    make veryclean
+    make
+
 
 %runscript
-    /opt/PIMD/pimd.2.3.0/compile/pimd.mpi.x
-
-%startscript
-    nc -lp $LISTEN_PORT
+    # run the example
+    cp -r /opt/PIMD/examples/SiO2/qe_md ./
+    cd qe_md
+    sed -i -e 's/..\/..\/..\/lib\/qe\/pseudo\//\/opt\/PIMD\/lib\/qe\/pseudo\//g' ./qe.dat
+    sed -i -e 's/Si.pz-vbc.UPF/Si.pbe-n-rrkjus_psl.1.0.0.UPF/g' ./qe.dat
+    sed -i -e 's/O.pz-kjpaw.UPF/O.pbe-n-kjpaw_psl.0.1.UPF/g' ./qe.dat
+    /opt/PIMD/compile/pimd.mpi.x
 
 %help
-    This is a demo container used to illustrate a def file that uses all
-    supported sections.
+    This is a container for using PIMD, Quantum Espresso and aenet, which is the molecular dynamics simulator with neural net potentials.
